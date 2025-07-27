@@ -1,74 +1,50 @@
-'''
-    BOT FOR TELEGRAM
-'''
+import threading
+import http.server
+import socketserver
+import os
 
-import random
+# 🟢 Start your Telegram bot like before
+from telegram import ParseMode
+from telegram.ext import Updater, CommandHandler
 import logging
-from telegram import (ParseMode)
-from telegram.ext import (Updater, CommandHandler)
+import random
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+# Logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Telegram handlers
+def start(update, context):
+    update.message.reply_text("Welcome! to simple telegram bot", parse_mode=ParseMode.HTML)
+    coin(update, context)
+
+def coin(update, context):
+    msg = "⚫️ face " if random.randint(1, 2) == 1 else "⚪️ cross"
+    update.message.reply_text(msg)
 
 def error_callback(update, context):
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
-
-def start(update, context):
-    ''' 
-        Start
-    '''
-    context.bot.send_message(update.message.chat_id,
-                             "Welcome! to simple telegram bot", parse_mode=ParseMode.HTML)
-
-    ''' 
-        We can call other commands, without it being activated in the chat (/ help).
-    '''
-    coin(update, context)
-
-
-def coin(update, context):
-    '''
-        ⚪️ / ⚫️ Currency
-         Generate an elatory number between 1 and 2.
-    '''
-    cid = update.message.chat_id
-
-    msg = "⚫️ face " if random.randint(1, 2) == 1 else "⚪️ cross"
-    '''
-        He responds directly on the channel where he has been spoken to.
-    '''
-    update.message.reply_text(msg)
-
-
-def main():
-    TOKEN = "6812681662:AAFkVDvZNTXIMOQrvl0Y8UxH-arh3Ju1wMc"
-
+def run_bot():
+    TOKEN = os.getenv("BOT_TOKEN") or "your-token-here"
     updater = Updater(TOKEN, use_context=True)
-
     dp = updater.dispatcher
-
-    '''
-        Events that will activate our bot.
-    '''
-    dp.add_handler(CommandHandler('start',	start))
-    dp.add_handler(CommandHandler('coin',	coin))
-
+    dp.add_handler(CommandHandler('start', start))
+    dp.add_handler(CommandHandler('coin', coin))
     dp.add_error_handler(error_callback)
-
-    '''
-        The bot starts
-    '''
     updater.start_polling()
-
-    '''
-        or leave listening. Keep it from stopping.
-    '''
     updater.idle()
 
+# 🟢 Dummy web server to keep Render happy
+def run_web_server():
+    PORT = int(os.environ.get("PORT", 10000))  # Render will inject PORT
+    Handler = http.server.SimpleHTTPRequestHandler
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        print(f"Serving dummy HTTP on port {PORT}")
+        httpd.serve_forever()
 
 if __name__ == '__main__':
-    print('[Telegram simple bot] Start...')
-    main()
+    # Run both bot and server in parallel threads
+    threading.Thread(target=run_bot).start()
+    run_web_server()
